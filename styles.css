@@ -378,6 +378,7 @@ input[type="range"] { width: 100%; height: 5px; accent-color: #7abfff; cursor: p
   overflow: hidden;
   height: 400px;
   flex: 0 0 auto;
+  background: linear-gradient(to bottom, #b8daf0 0%, #d6ecf8 55%, #eaf5fc 100%);
 }
 
 .cloud {
@@ -625,7 +626,7 @@ input[type="range"] { width: 100%; height: 5px; accent-color: #7abfff; cursor: p
 .gantt-cursor {
   position: absolute; top: 0; width: 2px;
   background: #e05555; border-radius: 1px;
-  pointer-events: none; transition: left 0.9s linear; z-index: 2;
+  pointer-events: none; z-index: 2;
 }
 
 .gantt-block {

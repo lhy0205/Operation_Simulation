@@ -1,9 +1,50 @@
-// 스케줄러 로직(추후 추가 예정 - 현재 FCFS로 임시)
+function getAlgo() {
+  return document.getElementById('algoSelect').value;
+}
+
+function getTQ() {
+  return Math.max(1, +document.getElementById('tqInput').value || 2);
+}
+
+function selectNext(t) {
+  const algo = getAlgo();
+  const running = new Set(
+    Object.values(coreState).filter(s => s.busy).map(s => s.currentProcess)
+  );
+  const available = readyQueueItems.filter(n => !running.has(n) && !resultData[n]);
+  if (!available.length) return null;
+
+  if (algo === 'SPN' || algo === 'SRTN') {
+    return available.reduce((best, n) => {
+      const br = processState[best]?.remaining ?? Infinity;
+      const nr = processState[n]?.remaining ?? Infinity;
+      return nr < br ? n : best;
+    });
+  }
+
+  if (algo === 'HRRN') {
+    let best = null, bestR = -Infinity;
+    available.forEach(name => {
+      const proc = processes.find(p => p.name === name);
+      const ps   = processState[name];
+      if (!proc || !ps) return;
+      const waited = Math.max(0, t - ps.arrivalInQueue);
+      const r = (waited + proc.bt) / proc.bt;
+      if (r > bestR) { bestR = r; best = name; }
+    });
+    return best;
+  }
+
+  return available[0];
+}
+
 function trySchedule() {
-  const waiting   = readyQueueItems.filter(n => processState[n] && processState[n].startTime === null);
   const freeCores = Object.keys(coreState).filter(k => !coreState[k].busy);
-  const n = Math.min(waiting.length, freeCores.length);
-  for (let i = 0; i < n; i++) assignToCore(freeCores[i], waiting[i]);
+  for (const coreName of freeCores) {
+    const next = selectNext(ganttSeconds);
+    if (next == null) break;
+    assignToCore(coreName, next);
+  }
 }
 
 function assignToCore(coreName, procName) {
@@ -13,14 +54,40 @@ function assignToCore(coreName, procName) {
 
   if (s.everUsed) incrementContextSwitch();
 
-  const cfg      = POWER[s.type];
-  const execSecs = Math.max(1, Math.ceil(proc.bt / cfg.work));
-  s.busy = true; s.currentProcess = procName;
-  s.startTime = ganttSeconds; s.finishTime = ganttSeconds + execSecs;
-  s.everUsed  = true;
-  processState[procName].startTime = ganttSeconds;
-  processState[procName].coreName  = coreName;
-  drawGanttBlock(coreName, ganttSeconds, execSecs, procName, s.type);
+  s.busy           = true;
+  s.currentProcess = procName;
+  s.blockStart     = ganttSeconds;
+  s.quantumLeft    = getTQ();
+  s.everUsed       = true;
+
+  requestAnimationFrame(() => dropFromCloud(procName));
+
+  const track = document.getElementById(`gantt-track-${coreName.replace(/\s/g, '-')}`);
+  if (track) {
+    const block = document.createElement('div');
+    block.className = 'gantt-block' + (s.type === 'p' ? ' gantt-block--p' : ' gantt-block--e');
+    block.style.left  = (s.blockStart * TICK_PX) + 'px';
+    block.style.width = '2px';
+    block.textContent = procName;
+    track.appendChild(block);
+    s.blockEl = block;
+    if (typeof updateActiveGanttBlocks === 'function') updateActiveGanttBlocks();
+  }
+
+  const ps = processState[procName];
+  if (ps) {
+    if (ps.firstStartTime == null) ps.firstStartTime = ganttSeconds;
+    ps.coreName = coreName;
+  }
+
+  renderReadyQueue();
+}
+
+function finishCoreBlock(coreName) {
+  const s = coreState[coreName];
+  if (!s || !s.busy) return;
+  if (typeof updateActiveGanttBlocks === 'function') updateActiveGanttBlocks(ganttSeconds);
+  s.blockEl = null;
 }
 
 function completeProcess(coreName) {
@@ -29,19 +96,68 @@ function completeProcess(coreName) {
   const procName = s.currentProcess;
   const proc     = processes.find(p => p.name === procName);
   const ps       = processState[procName];
+
+  finishCoreBlock(coreName);
+
   if (proc && ps) {
-    updateResultRow(
-      procName,
-      Math.max(0, ps.startTime - ps.arrivalInQueue),
-      Math.max(0, ganttSeconds - proc.at)
-    );
+    const tt = Math.max(0, ganttSeconds - proc.at);
+    const wt = Math.max(0, tt - proc.bt);
+    updateResultRow(procName, wt, tt);
   }
-  s.busy = false; s.currentProcess = null; s.startTime = null; s.finishTime = null;
+
+  const idx = readyQueueItems.indexOf(procName);
+  if (idx !== -1) readyQueueItems.splice(idx, 1);
+  renderReadyQueue();
+
+  s.busy = false; s.currentProcess = null;
+  s.blockStart = null; s.quantumLeft = 0;
+  if (ps) ps.coreName = null;
+
   trySchedule();
 }
 
+function requeueProcess(coreName) {
+  const s = coreState[coreName];
+  if (!s || !s.busy) return;
+
+  finishCoreBlock(coreName);
+
+  const procName = s.currentProcess;
+  const idx = readyQueueItems.indexOf(procName);
+  if (idx !== -1) {
+    readyQueueItems.splice(idx, 1);
+    readyQueueItems.push(procName);
+  }
+  renderReadyQueue();
+
+  s.busy = false; s.currentProcess = null;
+  s.blockStart = null; s.quantumLeft = 0;
+  const ps = processState[procName];
+  if (ps) ps.coreName = null;
+
+  trySchedule();
+}
+
+function preemptCore(coreName) {
+  const s = coreState[coreName];
+  if (!s || !s.busy) return;
+
+  finishCoreBlock(coreName);
+
+  const procName = s.currentProcess;
+  const idx = readyQueueItems.indexOf(procName);
+  if (idx !== -1) readyQueueItems.splice(idx, 1);
+  readyQueueItems.unshift(procName);
+  renderReadyQueue();
+
+  s.busy = false; s.currentProcess = null;
+  s.blockStart = null; s.quantumLeft = 0;
+  const ps = processState[procName];
+  if (ps) ps.coreName = null;
+}
+
 function checkAllDone() {
-  if (processes.length === 0) return;
+  if (!processes.length) return;
   if (processes.every(p => resultData[p.name]) && Object.values(coreState).every(s => !s.busy)) {
     stopGanttTimer();
     running = false;

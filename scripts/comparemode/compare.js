@@ -34,13 +34,10 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
   function selectNext(t) {
     if (!readyQueue.length) return null;
     let idx = 0;
-    if (algo === 'SJF' || algo === 'SRTF') {
+    if (algo === 'SPN' || algo === 'SRTN') {
       for (let i = 1; i < readyQueue.length; i++)
         if ((getProc(readyQueue[i])?.rem ?? Infinity) < (getProc(readyQueue[idx])?.rem ?? Infinity)) idx = i;
-    } else if (algo === 'Priority') {
-      for (let i = 1; i < readyQueue.length; i++)
-        if ((getProc(readyQueue[i])?.bt ?? Infinity) < (getProc(readyQueue[idx])?.bt ?? Infinity)) idx = i;
-    } else if (algo === 'HRN') {
+    } else if (algo === 'HRRN') {
       let maxR = -1;
       for (let i = 0; i < readyQueue.length; i++) {
         const p = getProc(readyQueue[i]);
@@ -60,7 +57,7 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
         readyQueue.push(p.name);
     });
 
-    if (algo === 'SRTF') {
+    if (algo === 'SRTN') {
       cores.forEach(core => {
         if (!core.proc) return;
         const running = getProc(core.proc);
@@ -97,12 +94,12 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
       const p = getProc(core.proc);
       if (!p) { core.proc = null; return; }
       p.rem = Math.max(0, p.rem - core.work);
-      if (algo === 'Round Robin') core.qLeft--;
+      if (algo === 'RR') core.qLeft--;
       if (p.rem <= 0) {
         p.done = true; p.finish = t + 1;
         closeBlock(core, t + 1);
         core.proc = null; core.qLeft = 0;
-      } else if (algo === 'Round Robin' && core.qLeft <= 0) {
+      } else if (algo === 'RR' && core.qLeft <= 0) {
         closeBlock(core, t + 1);
         readyQueue.push(core.proc);
         core.proc = null; core.qLeft = 0;
@@ -283,7 +280,7 @@ function updateCmpTQ() {
   const a1   = document.getElementById('cmpAlgo1').value;
   const a2   = document.getElementById('cmpAlgo2').value;
   const wrap = document.getElementById('cmpTqWrap');
-  if (wrap) wrap.style.display = (a1 === 'Round Robin' || a2 === 'Round Robin') ? 'flex' : 'none';
+  if (wrap) wrap.style.display = (a1 === 'RR' || a2 === 'RR') ? 'flex' : 'none';
 }
 
 function runComparison() {

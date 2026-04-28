@@ -1,4 +1,3 @@
-// 간트 차트 관련 함수
 function drawGanttBlock(coreName, startSec, durSec, procName, coreType) {
   const track = document.getElementById(`gantt-track-${coreName.replace(/\s/g, '-')}`);
   if (!track) return;
@@ -51,7 +50,8 @@ function buildGantt() {
       type: k.startsWith('P') ? 'p' : 'e',
       usedSeconds: 0, everUsed: false,
       busy: false, currentProcess: null,
-      startTime: null, finishTime: null
+      startTime: null, finishTime: null,
+      blockStart: null, quantumLeft: 0, blockEl: null,
     };
   });
 
@@ -75,7 +75,7 @@ function drawTicks(upToSec) {
   const ticks = document.getElementById('ganttTicks');
   if (!ticks) return;
   ticks.innerHTML = '';
-  const maxSec = Math.max(upToSec + 5, 15);
+  const maxSec = Math.max(Math.ceil(upToSec) + 5, 15);
   const totalW = maxSec * TICK_PX;
   document.querySelectorAll('.gantt-track').forEach(t => { t.style.width = totalW + 'px'; });
   for (let s = 0; s <= maxSec; s++) {
@@ -99,28 +99,138 @@ function updateCursors(sec) {
     scroll.scrollLeft = cursorX - scroll.offsetWidth + 80;
 }
 
-function startGanttTimer() {
-  if (ganttTimer) return;
-  ganttTimer = setInterval(() => {
-    ganttSeconds++;
-    drawTicks(ganttSeconds);
-    updateCursors(ganttSeconds);
-    Object.entries(coreState).forEach(([name, s]) => {
-      if (s.busy) {
-        s.usedSeconds++;
-        if (ganttSeconds >= s.finishTime) completeProcess(name);
-      }
-    });
-    renderPowerStats();
-    checkAllDone();
-  }, Math.round(1000 / speed));
+let ganttVisualFrame = null;
+let ganttLastTickAt = 0;
+
+function getTickDurationMs() {
+  return Math.round(1000 / speed);
 }
 
-function stopGanttTimer()  { clearInterval(ganttTimer); ganttTimer = null; }
-function resetGanttTimer() { ganttSeconds = 0; buildGantt(); }
+function getVisualSecond() {
+  if (!running || !ganttTimer || !ganttLastTickAt) return ganttSeconds;
+  const elapsed = (performance.now() - ganttLastTickAt) / getTickDurationMs();
+  return ganttSeconds + Math.min(1, Math.max(0, elapsed));
+}
+
+function updateActiveGanttBlocks(sec = getVisualSecond()) {
+  Object.values(coreState).forEach(s => {
+    if (!s.busy || !s.blockEl || s.blockStart == null) return;
+    const dur = Math.max(0, sec - s.blockStart);
+    s.blockEl.style.width = Math.max(2, dur * TICK_PX - 2) + 'px';
+  });
+}
+
+function renderGanttRealtime() {
+  const sec = getVisualSecond();
+  updateCursors(sec);
+  updateActiveGanttBlocks(sec);
+  ganttVisualFrame = requestAnimationFrame(renderGanttRealtime);
+}
+
+function startGanttVisualLoop() {
+  if (ganttVisualFrame) return;
+  ganttVisualFrame = requestAnimationFrame(renderGanttRealtime);
+}
+
+function stopGanttVisualLoop() {
+  if (!ganttVisualFrame) return;
+  cancelAnimationFrame(ganttVisualFrame);
+  ganttVisualFrame = null;
+}
+
+function addArrivalsAt(sec) {
+  processes.forEach(p => {
+    if (p.at === sec && !readyQueueItems.includes(p.name) && !resultData[p.name]) {
+      addToReadyQueue(p.name);
+    }
+  });
+}
+
+function startGanttTimer() {
+  if (ganttTimer) return;
+
+  addArrivalsAt(ganttSeconds);
+  trySchedule();
+  ganttLastTickAt = performance.now();
+  startGanttVisualLoop();
+
+  ganttTimer = setInterval(() => {
+    const algo = getAlgo();
+
+    ganttSeconds++;
+    ganttLastTickAt = performance.now();
+    drawTicks(ganttSeconds);
+
+    Object.entries(coreState).forEach(([, s]) => {
+      if (!s.busy) return;
+      s.usedSeconds++;
+      const cfg = POWER[s.type];
+      const ps  = processState[s.currentProcess];
+      if (ps) ps.remaining = Math.max(0, (ps.remaining ?? 0) - cfg.work);
+      if (algo === 'RR') s.quantumLeft--;
+
+      if (s.blockEl && s.blockStart != null) {
+        const dur = Math.max(0, ganttSeconds - s.blockStart);
+        s.blockEl.style.width = Math.max(2, dur * TICK_PX - 2) + 'px';
+      }
+    });
+
+    Object.entries(coreState).forEach(([name, s]) => {
+      if (!s.busy) return;
+      const ps     = processState[s.currentProcess];
+      const isDone = ps && ps.remaining <= 0;
+      if (isDone) {
+        completeProcess(name);
+      } else if (algo === 'RR' && s.quantumLeft <= 0) {
+        requeueProcess(name);
+      }
+    });
+
+    addArrivalsAt(ganttSeconds);
+
+    if (algo === 'SRTN') {
+      const busyCores = Object.entries(coreState).filter(([, s]) => s.busy);
+      busyCores.forEach(([coreName, s]) => {
+        const runPs = processState[s.currentProcess];
+        if (!runPs) return;
+        const runningSet = new Set(Object.values(coreState).filter(c => c.busy).map(c => c.currentProcess));
+        const candidates = readyQueueItems.filter(n => !runningSet.has(n) && !resultData[n]);
+        for (const name of candidates) {
+          const ps = processState[name];
+          if (ps && ps.remaining < (runPs.remaining ?? Infinity)) {
+            preemptCore(coreName);
+            break;
+          }
+        }
+      });
+    }
+
+    trySchedule();
+
+    renderPowerStats();
+    checkAllDone();
+  }, getTickDurationMs());
+}
+
+function stopGanttTimer()  {
+  clearInterval(ganttTimer);
+  ganttTimer = null;
+  stopGanttVisualLoop();
+  updateCursors(ganttSeconds);
+  updateActiveGanttBlocks(ganttSeconds);
+}
+
+function resetGanttTimer() {
+  ganttSeconds = 0;
+  ganttLastTickAt = 0;
+  stopGanttVisualLoop();
+  buildGantt();
+}
 
 buildGantt();
-window.addEventListener('resize', buildGantt);
+window.addEventListener('resize', () => {
+  if (!running) buildGantt();
+});
 
 document.getElementById('ganttScroll').addEventListener('wheel', (e) => {
   e.preventDefault();
