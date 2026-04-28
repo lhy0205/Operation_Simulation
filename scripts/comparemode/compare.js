@@ -31,7 +31,7 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
     }
   }
 
-  function selectNext(t) {
+  function selectNext(t, coreType) {
     if (!readyQueue.length) return null;
     let idx = 0;
     if (algo === 'SPN' || algo === 'SRTN') {
@@ -46,6 +46,20 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
         const r = (waited + p.bt) / p.bt;
         if (r > maxR) { maxR = r; idx = i; }
       }
+    } else if (algo === '꽉꽉이(full-full-ee)') {
+      const getEW = name => {
+        const p = getProc(name);
+        if (!p) return 0;
+        const waitTime = Math.max(0, t - (p.arrivalInQueue ?? t));
+        return (p.weight ?? 0) + Math.floor(waitTime / 3) * 2;
+      };
+      if (coreType === 'p') {
+        for (let i = 1; i < readyQueue.length; i++)
+          if (getEW(readyQueue[i]) > getEW(readyQueue[idx])) idx = i;
+      } else {
+        for (let i = 1; i < readyQueue.length; i++)
+          if (getEW(readyQueue[i]) < getEW(readyQueue[idx])) idx = i;
+      }
     }
     return readyQueue.splice(idx, 1)[0];
   }
@@ -53,8 +67,14 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
   const MAX_T = 500;
   for (let t = 0; t < MAX_T; t++) {
     ps.forEach(p => {
-      if (!p.done && p.at === t && !readyQueue.includes(p.name) && !cores.some(c => c.proc === p.name))
+      if (!p.done && p.at === t && !readyQueue.includes(p.name) && !cores.some(c => c.proc === p.name)) {
+        if (algo === '꽉꽉이(full-full-ee)') {
+          const tw = p.bt % 3 === 0 ? 10 : p.bt % 3 === 1 ? 5 : 0;
+          p.weight = p.bt + tw;
+          p.arrivalInQueue = t;
+        }
         readyQueue.push(p.name);
+      }
     });
 
     if (algo === 'SRTN') {
@@ -80,7 +100,7 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
 
     cores.forEach(core => {
       if (core.proc) return;
-      const name = selectNext(t);
+      const name = selectNext(t, core.type);
       if (!name) return;
       core.proc = name;
       core.qLeft = tq;
