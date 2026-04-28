@@ -6,7 +6,14 @@ function getTQ() {
   return Math.max(1, +document.getElementById('tqInput').value || 2);
 }
 
-function selectNext(t) {
+function getEffectiveWeight(name, t) {
+  const ps = processState[name];
+  if (!ps) return 0;
+  const waitTime = Math.max(0, t - ps.arrivalInQueue);
+  return (ps.weight ?? 0) + Math.floor(waitTime / 3) * 2;
+}
+
+function selectNext(t, coreName) {
   const algo = getAlgo();
   const running = new Set(
     Object.values(coreState).filter(s => s.busy).map(s => s.currentProcess)
@@ -35,13 +42,26 @@ function selectNext(t) {
     return best;
   }
 
+  if (algo === '꽉꽉이(full-full-ee)') {
+    const coreType = coreState[coreName]?.type;
+    if (coreType === 'p') {
+      return available.reduce((best, n) =>
+        getEffectiveWeight(n, t) > getEffectiveWeight(best, t) ? n : best
+      );
+    } else {
+      return available.reduce((best, n) =>
+        getEffectiveWeight(n, t) < getEffectiveWeight(best, t) ? n : best
+      );
+    }
+  }
+
   return available[0];
 }
 
 function trySchedule() {
   const freeCores = Object.keys(coreState).filter(k => !coreState[k].busy);
   for (const coreName of freeCores) {
-    const next = selectNext(ganttSeconds);
+    const next = selectNext(ganttSeconds, coreName);
     if (next == null) break;
     assignToCore(coreName, next);
   }

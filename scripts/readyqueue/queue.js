@@ -28,6 +28,11 @@ function renderReadyQueue() {
   });
 }
 
+function calcWeight(bt) {
+  const t = bt % 3 === 0 ? 10 : bt % 3 === 1 ? 5 : 0;
+  return bt + t;
+}
+
 function addToReadyQueue(name) {
   if (readyQueueItems.includes(name) || resultData[name]) return;
   const proc = processes.find(p => p.name === name);
@@ -35,6 +40,7 @@ function addToReadyQueue(name) {
   processState[name] = {
     arrivalInQueue: ganttSeconds,
     remaining: proc ? proc.bt : 0,
+    weight: proc ? calcWeight(proc.bt) : 0,
     firstStartTime: null,
     coreName: null,
   };
