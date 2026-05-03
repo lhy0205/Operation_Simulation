@@ -32,8 +32,8 @@ function completeProcess(coreName) {
   if (proc && ps) {
     updateResultRow(
       procName,
-      Math.max(0, ps.startTime - ps.arrivalInQueue),
-      Math.max(0, ganttSeconds - proc.at)
+      Math.max(0, (ps.startTime + 1) - ps.arrivalInQueue), // WT +1 보정
+      Math.max(0, ganttSeconds - proc.at) 
     );
   }
   s.busy = false; s.currentProcess = null; s.startTime = null; s.finishTime = null;
