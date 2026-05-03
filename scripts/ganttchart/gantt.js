@@ -49,9 +49,7 @@ function buildGantt() {
     if (!coreState[k]) coreState[k] = {
       type: k.startsWith('P') ? 'p' : 'e',
       usedSeconds: 0, everUsed: false,
-
-      //23232132
-      startupCount: 0,
+      startupCount: 0, needsStartup: true,
       busy: false, currentProcess: null,
       startTime: null, finishTime: null,
       blockStart: null, quantumLeft: 0, blockEl: null,
@@ -220,6 +218,8 @@ function startGanttTimer() {
     }
 
     trySchedule();
+
+    Object.values(coreState).forEach(s => { if (!s.busy) s.needsStartup = true; });
 
     renderPowerStats();
     checkAllDone();

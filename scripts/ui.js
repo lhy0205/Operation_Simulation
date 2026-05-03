@@ -261,7 +261,7 @@ function resetAll() {
     coreState[k].busy = false; coreState[k].currentProcess = null;
     coreState[k].startTime = null; coreState[k].finishTime = null;
     coreState[k].blockStart = null; coreState[k].quantumLeft = 0; coreState[k].blockEl = null;
-    coreState[k].usedSeconds = 0; coreState[k].everUsed = false; coreState[k].startupCount = 0;
+    coreState[k].usedSeconds = 0; coreState[k].everUsed = false; coreState[k].startupCount = 0; coreState[k].needsStartup = true;
   });
   Object.keys(resultData).forEach(k  => delete resultData[k]);
   Object.keys(processState).forEach(k => delete processState[k]);
