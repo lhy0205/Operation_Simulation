@@ -169,7 +169,10 @@ function startGanttTimer() {
       s.usedSeconds++;
       const cfg = POWER[s.type];
       const ps  = processState[s.currentProcess];
-      if (ps) ps.remaining = Math.max(0, (ps.remaining ?? 0) - cfg.work);
+      if (ps) {
+        ps.remaining = Math.max(0, (ps.remaining ?? 0) - cfg.work);
+        ps.cpuTicks = (ps.cpuTicks ?? 0) + 1;
+      }
       if (algo === 'RR') s.quantumLeft--;
 
       if (s.blockEl && s.blockStart != null) {
