@@ -28,3 +28,4 @@ const processState = {};
 //  그래프 히스토리
 const perfHistory = [];
 const effHistory  = [];
+//  UI 요소

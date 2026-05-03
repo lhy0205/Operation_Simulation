@@ -87,8 +87,8 @@ function assignToCore(coreName, procName) {
   s.blockStart     = ganttSeconds;
   s.quantumLeft    = getTQ();
   s.everUsed       = true;
-  s.startupCount   = (s.startupCount || 0) + 1;
-  //
+  s.startupCount   = (s.startupCount || 0) + 1; // 시동전력 카운트 추가
+
 
   requestAnimationFrame(() => dropFromCloud(procName));
 
