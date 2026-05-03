@@ -4,7 +4,7 @@ function drawGanttBlock(coreName, startSec, durSec, procName, coreType) {
   const block = document.createElement('div');
   block.className = 'gantt-block' + (coreType === 'p' ? ' gantt-block--p' : ' gantt-block--e');
   block.style.left  = (startSec * TICK_PX) + 'px';
-  block.style.width = Math.max(2, durSec * TICK_PX - 2) + 'px';
+  block.style.width = Math.max(2, durSec * TICK_PX - 2) + 'px';//
   block.textContent = procName;
   track.appendChild(block);
 }
