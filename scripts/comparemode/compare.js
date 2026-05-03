@@ -10,8 +10,8 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
   }));
 
   const cores = [];
-  for (let i = 1; i <= numP; i++) cores.push({ name: `P-core ${i}`, type: 'p', work: POWER.p.work, proc: null, qLeft: 0 });
-  for (let i = 1; i <= numE; i++) cores.push({ name: `E-core ${i}`, type: 'e', work: POWER.e.work, proc: null, qLeft: 0 });
+  for (let i = 1; i <= numP; i++) cores.push({ name: `P-core ${i}`, type: 'p', work: POWER.p.work, proc: null, qLeft: 0, usedSeconds: 0, everUsed: false });
+  for (let i = 1; i <= numE; i++) cores.push({ name: `E-core ${i}`, type: 'e', work: POWER.e.work, proc: null, qLeft: 0, usedSeconds: 0, everUsed: false });
 
   const coreNames      = cores.map(c => c.name);
   const readyQueue     = [];
@@ -31,16 +31,13 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
     }
   }
 
-  function selectNext(t) {
+  function selectNext(t, coreType) {
     if (!readyQueue.length) return null;
     let idx = 0;
-    if (algo === 'SJF' || algo === 'SRTF') {
+    if (algo === 'SPN' || algo === 'SRTN') {
       for (let i = 1; i < readyQueue.length; i++)
         if ((getProc(readyQueue[i])?.rem ?? Infinity) < (getProc(readyQueue[idx])?.rem ?? Infinity)) idx = i;
-    } else if (algo === 'Priority') {
-      for (let i = 1; i < readyQueue.length; i++)
-        if ((getProc(readyQueue[i])?.bt ?? Infinity) < (getProc(readyQueue[idx])?.bt ?? Infinity)) idx = i;
-    } else if (algo === 'HRN') {
+    } else if (algo === 'HRRN') {
       let maxR = -1;
       for (let i = 0; i < readyQueue.length; i++) {
         const p = getProc(readyQueue[i]);
@@ -49,6 +46,20 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
         const r = (waited + p.bt) / p.bt;
         if (r > maxR) { maxR = r; idx = i; }
       }
+    } else if (algo === '꽉꽉이(full-full-ee)') {
+      const getEW = name => {
+        const p = getProc(name);
+        if (!p) return 0;
+        const waitTime = Math.max(0, t - (p.arrivalInQueue ?? t));
+        return (p.weight ?? 0) + Math.floor(waitTime / 3) * 2;
+      };
+      if (coreType === 'p') {
+        for (let i = 1; i < readyQueue.length; i++)
+          if (getEW(readyQueue[i]) > getEW(readyQueue[idx])) idx = i;
+      } else {
+        for (let i = 1; i < readyQueue.length; i++)
+          if (getEW(readyQueue[i]) < getEW(readyQueue[idx])) idx = i;
+      }
     }
     return readyQueue.splice(idx, 1)[0];
   }
@@ -56,11 +67,17 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
   const MAX_T = 500;
   for (let t = 0; t < MAX_T; t++) {
     ps.forEach(p => {
-      if (!p.done && p.at === t && !readyQueue.includes(p.name) && !cores.some(c => c.proc === p.name))
+      if (!p.done && p.at === t && !readyQueue.includes(p.name) && !cores.some(c => c.proc === p.name)) {
+        if (algo === '꽉꽉이(full-full-ee)') {
+          const tw = p.bt % 3 === 0 ? 10 : p.bt % 3 === 1 ? 5 : 0;
+          p.weight = p.bt + tw;
+          p.arrivalInQueue = t;
+        }
         readyQueue.push(p.name);
+      }
     });
 
-    if (algo === 'SRTF') {
+    if (algo === 'SRTN') {
       cores.forEach(core => {
         if (!core.proc) return;
         const running = getProc(core.proc);
@@ -83,10 +100,11 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
 
     cores.forEach(core => {
       if (core.proc) return;
-      const name = selectNext(t);
+      const name = selectNext(t, core.type);
       if (!name) return;
       core.proc = name;
       core.qLeft = tq;
+      core.everUsed = true;
       const p = getProc(name);
       if (p && p.firstRun === null) p.firstRun = t;
       openBlock(core, t);
@@ -96,13 +114,14 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
       if (!core.proc) return;
       const p = getProc(core.proc);
       if (!p) { core.proc = null; return; }
+      core.usedSeconds++;
       p.rem = Math.max(0, p.rem - core.work);
-      if (algo === 'Round Robin') core.qLeft--;
+      if (algo === 'RR') core.qLeft--;
       if (p.rem <= 0) {
         p.done = true; p.finish = t + 1;
         closeBlock(core, t + 1);
         core.proc = null; core.qLeft = 0;
-      } else if (algo === 'Round Robin' && core.qLeft <= 0) {
+      } else if (algo === 'RR' && core.qLeft <= 0) {
         closeBlock(core, t + 1);
         readyQueue.push(core.proc);
         core.proc = null; core.qLeft = 0;
@@ -130,7 +149,18 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
   const avgTT  = vals.length ? +(vals.reduce((s,v) => s+v.tt,  0) / vals.length).toFixed(2) : 0;
   const avgNTT = vals.length ? +(vals.reduce((s,v) => s+v.ntt, 0) / vals.length).toFixed(2) : 0;
 
-  return { blocks: finishedBlocks, coreNames, stats, summary: { avgWT, avgTT, avgNTT, makespan: endT, count: vals.length } };
+  let totalWatt = 0, totalWork = 0;
+  cores.forEach(core => {
+    const cfg = POWER[core.type];
+    if (core.everUsed) totalWatt += cfg.startup;
+    totalWatt += core.usedSeconds * cfg.watt;
+    totalWork += core.usedSeconds * cfg.work;
+  });
+  totalWatt = +totalWatt.toFixed(2);
+  const perf = endT > 0      ? +(totalWork / endT).toFixed(2)      : 0;
+  const eff  = totalWatt > 0 ? +(totalWork / totalWatt).toFixed(2) : 0;
+
+  return { blocks: finishedBlocks, coreNames, stats, summary: { avgWT, avgTT, avgNTT, makespan: endT, count: vals.length, perf, eff, totalWatt } };
 }
 
 /* ── 비교 간트 렌더 ── */
@@ -210,23 +240,33 @@ function renderCmpStats(containerId, summary, stats, procs) {
       <span>평균 TT <strong>${summary.avgTT}s</strong></span>
       <span>평균 NTT <strong>${summary.avgNTT}</strong></span>
       <span>전체 시간 <strong>${summary.makespan}s</strong></span>
+    </div>
+    <div class="cmp-power">
+      <span>⚙️ 성능 <strong>${summary.perf} work/s</strong></span>
+      <span>⚡ 효율 <strong>${summary.eff} work/W</strong></span>
+      <span>🔋 전력 <strong>${summary.totalWatt} W</strong></span>
     </div>`;
 }
 
 /* ── 판정 렌더 ── */
 function renderVerdict(algo1, s1, algo2, s2) {
   const metrics = [
-    { label: '평균 대기시간(WT)',  key: 'avgWT'   },
-    { label: '평균 반환시간(TT)',  key: 'avgTT'   },
-    { label: '평균 NTT',          key: 'avgNTT'  },
-    { label: '전체 수행시간',      key: 'makespan'},
+    { label: '평균 대기시간(WT)',  key: 'avgWT',    low: true  },
+    { label: '평균 반환시간(TT)',  key: 'avgTT',    low: true  },
+    { label: '평균 NTT',          key: 'avgNTT',   low: true  },
+    { label: '전체 수행시간',      key: 'makespan', low: true  },
+    { label: '성능 (work/s)',      key: 'perf',     low: false },
+    { label: '효율 (work/W)',      key: 'eff',      low: false },
+    { label: '전력 소비 (W)',      key: 'totalWatt',low: true  },
   ];
   let score1 = 0, score2 = 0;
   const rows = metrics.map(m => {
     const v1 = s1[m.key], v2 = s2[m.key];
     let w = 0;
-    if (v1 < v2) { score1++; w = 1; }
-    else if (v2 < v1) { score2++; w = 2; }
+    const win1 = m.low ? v1 < v2 : v1 > v2;
+    const win2 = m.low ? v2 < v1 : v2 > v1;
+    if (win1) { score1++; w = 1; }
+    else if (win2) { score2++; w = 2; }
     const mark = w === 1 ? `<span class="verdict-win">✔ ${algo1}</span>`
                : w === 2 ? `<span class="verdict-win">✔ ${algo2}</span>`
                : `<span class="verdict-tie">동점</span>`;
@@ -283,7 +323,7 @@ function updateCmpTQ() {
   const a1   = document.getElementById('cmpAlgo1').value;
   const a2   = document.getElementById('cmpAlgo2').value;
   const wrap = document.getElementById('cmpTqWrap');
-  if (wrap) wrap.style.display = (a1 === 'Round Robin' || a2 === 'Round Robin') ? 'flex' : 'none';
+  if (wrap) wrap.style.display = (a1 === 'RR' || a2 === 'RR') ? 'flex' : 'none';
 }
 
 function runComparison() {

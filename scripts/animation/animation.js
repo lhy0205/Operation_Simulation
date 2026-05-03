@@ -101,7 +101,6 @@ function dropFromCloud(name) {
   setTimeout(() => {
     const bx = dropRect.left - skyRect.left + dropRect.width / 2;
     triggerBurst(bx, groundTop, name);
-    addToReadyQueue(name);
   }, 1100);
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -130,36 +129,8 @@ function startDropAnimation() {
     btn.classList.remove('running');
     return;
   }
-
-  const sorted = [...processes].sort((a, b) =>
-    parseInt(a.name.slice(1)) - parseInt(b.name.slice(1))
-  );
-  const interval = Math.round(700 / speed);
-
-  sorted.forEach((proc, idx) => {
-    const t = setTimeout(() => {
-      if (!running) return;
-      dropFromCloud(proc.name);
-    }, idx * interval);
-    dropTimers.push(t);
-  });
-
-  const endDelay = (sorted.length - 1) * interval + 1700;
-  const endTimer = setTimeout(() => {
-    if (!running) return;
-    running = false;
-    const btn = document.getElementById('startBtn');
-    btn.textContent = '시작';
-    btn.classList.remove('running');
-    processes.forEach(p => {
-      const cloud = document.getElementById(`cloud-${p.name}`);
-      if (!cloud) return;
-      const droplet = cloud.querySelector('.droplet');
-      if (droplet) droplet.style.opacity = '1';
-    });
-    dropTimers = [];
-  }, endDelay);
-  dropTimers.push(endTimer);
+  // 실제 도착 시간 기반 드롭은 startGanttTimer가 처리.
+  // 여기서는 AT=0 프로세스의 시각적 표시만 담당 (addToReadyQueue는 startGanttTimer에서 호출).
 }
 
 

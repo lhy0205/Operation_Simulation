@@ -8,8 +8,14 @@ function renderReadyQueue() {
   if (!track) return;
   track.innerHTML = '';
 
-  const total = readyQueueItems.length;
-  readyQueueItems.forEach((name, idx) => {
+  // 현재 코어에서 실행 중인 프로세스는 레디 큐에서 숨김
+  const runningSet = new Set(
+    Object.values(coreState).filter(s => s.busy).map(s => s.currentProcess)
+  );
+  const visible = readyQueueItems.filter(n => !runningSet.has(n));
+  const total = visible.length;
+
+  visible.forEach((name, idx) => {
     const node = document.createElement('div');
     node.className   = 'rq-node';
     node.id          = `rq-${name}`;
@@ -22,13 +28,24 @@ function renderReadyQueue() {
   });
 }
 
+function calcWeight(bt) {
+  const t = bt % 3 === 0 ? 10 : bt % 3 === 1 ? 5 : 0;
+  return bt + t;
+}
+
 function addToReadyQueue(name) {
-  if (!readyQueueItems.includes(name)) {
-    readyQueueItems.push(name);
-    processState[name] = { arrivalInQueue: ganttSeconds, startTime: null, coreName: null };
-    renderReadyQueue();
-    trySchedule();
-  }
+  if (readyQueueItems.includes(name) || resultData[name]) return;
+  const proc = processes.find(p => p.name === name);
+  readyQueueItems.push(name);
+  processState[name] = {
+    arrivalInQueue: ganttSeconds,
+    remaining: proc ? proc.bt : 0,
+    weight: proc ? calcWeight(proc.bt) : 0,
+    firstStartTime: null,
+    coreName: null,
+    cpuTicks: 0,
+  };
+  renderReadyQueue();
 }
 
 positionReadyQueue();
