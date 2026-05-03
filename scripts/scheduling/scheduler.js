@@ -87,6 +87,7 @@ function assignToCore(coreName, procName) {
   s.blockStart     = ganttSeconds;
   s.quantumLeft    = getTQ();
   s.everUsed       = true;
+  s.startupCount   = (s.startupCount || 0) + 1;
 
   requestAnimationFrame(() => dropFromCloud(procName));
 
