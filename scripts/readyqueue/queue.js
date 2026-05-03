@@ -43,6 +43,7 @@ function addToReadyQueue(name) {
     weight: proc ? calcWeight(proc.bt) : 0,
     firstStartTime: null,
     coreName: null,
+    cpuTicks: 0,
   };
   renderReadyQueue();
 }

@@ -129,7 +129,7 @@ function completeProcess(coreName) {
 
   if (proc && ps) {
     const tt = Math.max(0, ganttSeconds - proc.at);
-    const wt = Math.max(0, tt - proc.bt);
+    const wt = Math.max(0, tt - (ps.cpuTicks ?? 0));
     updateResultRow(procName, wt, tt);
   }
 
