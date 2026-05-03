@@ -10,7 +10,7 @@ function getEffectiveWeight(name, t) {
   const ps = processState[name];
   if (!ps) return 0;
   const waitTime = Math.max(0, t - ps.arrivalInQueue);
-  return (ps.weight ?? 0) + Math.floor(waitTime / 3) * 2;
+  return (ps.weight ?? 0) + Math.floor(waitTime / 2) * 2;
 }
 
 function selectNext(t, coreName) {
