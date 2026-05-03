@@ -140,8 +140,6 @@ function completeProcess(coreName) {
   s.busy = false; s.currentProcess = null;
   s.blockStart = null; s.quantumLeft = 0;
   if (ps) ps.coreName = null;
-
-  trySchedule();
 }
 
 function requeueProcess(coreName) {
@@ -162,8 +160,6 @@ function requeueProcess(coreName) {
   s.blockStart = null; s.quantumLeft = 0;
   const ps = processState[procName];
   if (ps) ps.coreName = null;
-
-  trySchedule();
 }
 
 function preemptCore(coreName) {
