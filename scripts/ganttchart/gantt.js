@@ -139,11 +139,14 @@ function stopGanttVisualLoop() {
 }
 
 function addArrivalsAt(sec) {
+  let anyArrived = false;
   processes.forEach(p => {
     if (p.at === sec && !readyQueueItems.includes(p.name) && !resultData[p.name]) {
       addToReadyQueue(p.name);
+      anyArrived = true;
     }
   });
+  if (anyArrived) trySchedule();
 }
 
 function startGanttTimer() {
@@ -189,20 +192,26 @@ function startGanttTimer() {
     addArrivalsAt(ganttSeconds);
 
     if (algo === 'SRTN') {
-      const busyCores = Object.entries(coreState).filter(([, s]) => s.busy);
-      busyCores.forEach(([coreName, s]) => {
-        const runPs = processState[s.currentProcess];
-        if (!runPs) return;
-        const runningSet = new Set(Object.values(coreState).filter(c => c.busy).map(c => c.currentProcess));
-        const candidates = readyQueueItems.filter(n => !runningSet.has(n) && !resultData[n]);
-        for (const name of candidates) {
-          const ps = processState[name];
-          if (ps && ps.remaining < (runPs.remaining ?? Infinity)) {
-            preemptCore(coreName);
-            break;
+      const runningSet = new Set(
+        Object.values(coreState).filter(c => c.busy).map(c => c.currentProcess)
+      );
+      const waiting = readyQueueItems.filter(n => !runningSet.has(n) && !resultData[n]);
+      for (const waitName of waiting) {
+        const waitPs = processState[waitName];
+        if (!waitPs) continue;
+        let maxCore = null, maxRemaining = -Infinity;
+        Object.entries(coreState).forEach(([cName, s]) => {
+          if (!s.busy) return;
+          const rPs = processState[s.currentProcess];
+          if (rPs && rPs.remaining > maxRemaining) {
+            maxRemaining = rPs.remaining;
+            maxCore = cName;
           }
+        });
+        if (maxCore && waitPs.remaining < maxRemaining) {
+          preemptCore(maxCore);
         }
-      });
+      }
     }
 
     trySchedule();

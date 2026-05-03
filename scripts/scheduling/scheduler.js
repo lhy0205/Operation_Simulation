@@ -21,7 +21,15 @@ function selectNext(t, coreName) {
   const available = readyQueueItems.filter(n => !running.has(n) && !resultData[n]);
   if (!available.length) return null;
 
-  if (algo === 'SPN' || algo === 'SRTN') {
+  if (algo === 'SPN') {
+    return available.reduce((best, n) => {
+      const bp = processes.find(p => p.name === best)?.bt ?? Infinity;
+      const np = processes.find(p => p.name === n)?.bt ?? Infinity;
+      return np < bp ? n : best;
+    });
+  }
+
+  if (algo === 'SRTN') {
     return available.reduce((best, n) => {
       const br = processState[best]?.remaining ?? Infinity;
       const nr = processState[n]?.remaining ?? Infinity;
