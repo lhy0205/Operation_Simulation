@@ -44,7 +44,7 @@ function renderPowerStats() {
   let totalWatt = 0, totalWork = 0;
   Object.values(coreState).forEach(s => {
     const cfg = POWER[s.type];
-    if (s.everUsed) totalWatt += cfg.startup;
+    totalWatt += (s.startupCount ?? 0) * cfg.startup;
     totalWatt += s.usedSeconds * cfg.watt;
     totalWork += s.usedSeconds * cfg.work;
   });

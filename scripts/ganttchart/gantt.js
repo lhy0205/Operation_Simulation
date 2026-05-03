@@ -49,12 +49,14 @@ function buildGantt() {
     if (!coreState[k]) coreState[k] = {
       type: k.startsWith('P') ? 'p' : 'e',
       usedSeconds: 0, everUsed: false,
+
+      //23232132
+      startupCount: 0,
       busy: false, currentProcess: null,
       startTime: null, finishTime: null,
       blockStart: null, quantumLeft: 0, blockEl: null,
     };
   });
-
   for (let i = 0; i < p; i++) rows.appendChild(makeGanttRow(`P-core ${i+1}`, 'p-core'));
   for (let i = 0; i < e; i++) rows.appendChild(makeGanttRow(`E-core ${i+1}`, 'e-core'));
 
