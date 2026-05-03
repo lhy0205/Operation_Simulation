@@ -1,6 +1,4 @@
-// Ready Queue 관리
 const readyQueueItems = [];
-
 function positionReadyQueue() {}
 
 function renderReadyQueue() {
@@ -8,7 +6,6 @@ function renderReadyQueue() {
   if (!track) return;
   track.innerHTML = '';
 
-  // 현재 코어에서 실행 중인 프로세스는 레디 큐에서 숨김
   const runningSet = new Set(
     Object.values(coreState).filter(s => s.busy).map(s => s.currentProcess)
   );
@@ -28,8 +25,10 @@ function renderReadyQueue() {
   });
 }
 
+
 function calcWeight(bt) {
-  const t = bt % 3 === 0 ? 10 : bt % 3 === 1 ? 5 : 0;
+  // const t = bt % 3 === 0 ? 10 : bt % 3 === 1 ? 5 : 0;
+  const t = bt % 2 === 0 ? 10 : bt % 2 === 1 ? 5 : 0;
   return bt + t;
 }
 
