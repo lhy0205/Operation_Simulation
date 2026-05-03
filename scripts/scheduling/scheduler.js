@@ -87,6 +87,7 @@ function assignToCore(coreName, procName) {
   s.blockStart     = ganttSeconds;
   s.quantumLeft    = getTQ();
   s.everUsed       = true;
+  s.startupCount   = (s.startupCount || 0) + 1; // 시동전력 카운트 추가
 
   requestAnimationFrame(() => dropFromCloud(procName));
 
@@ -128,17 +129,9 @@ function completeProcess(coreName) {
   finishCoreBlock(coreName);
 
   if (proc && ps) {
-<<<<<<< HEAD
-    updateResultRow(
-      procName,
-      Math.max(0, ps.startTime - ps.arrivalInQueue),
-      Math.max(0, ganttSeconds - proc.at) 
-    );
-=======
     const tt = Math.max(0, ganttSeconds - proc.at);
     const wt = Math.max(0, tt - (ps.cpuTicks ?? 0));
     updateResultRow(procName, wt, tt);
->>>>>>> dcc2f69ee65d77bd20b02b2766069a2e45d778aa
   }
 
   const idx = readyQueueItems.indexOf(procName);
