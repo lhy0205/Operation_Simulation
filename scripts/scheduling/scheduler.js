@@ -6,12 +6,20 @@ function getTQ() {
   return Math.max(1, +document.getElementById('tqInput').value || 2);
 }
 
+// function getEffectiveWeight(name, t) {
+//   const ps = processState[name];
+//   if (!ps) return 0;
+//   const waitTime = Math.max(0, t - ps.arrivalInQueue);
+//   return (ps.weight ?? 0) + Math.floor(waitTime / 2) * 2;
+// }
 function getEffectiveWeight(name, t) {
   const ps = processState[name];
   if (!ps) return 0;
   const waitTime = Math.max(0, t - ps.arrivalInQueue);
-  return (ps.weight ?? 0) + Math.floor(waitTime / 2) * 2;
+  const aging = Math.floor(waitTime / 3) * 50;
+  return (ps.weight ?? 0) + aging;
 }
+
 
 function selectNext(t, coreName) {
   const algo = getAlgo();
@@ -51,14 +59,29 @@ function selectNext(t, coreName) {
   }
 
   if (algo === '꽉꽉이(full-full-ee)') {
+    // const coreType = coreState[coreName]?.type;
+    // if (coreType === 'p') {
+    //   return available.reduce((best, n) =>
+    //     getEffectiveWeight(n, t) > getEffectiveWeight(best, t) ? n : best
+    //   );
+    // } else {
+    //   return available.reduce((best, n) =>
+    //     getEffectiveWeight(n, t) < getEffectiveWeight(best, t) ? n : best
+    //   );
+    // }
     const coreType = coreState[coreName]?.type;
-    if (coreType === 'p') {
+
+    if (coreType === 'e') {
+      // E-core: 잔여량 적은 것 + 에이징
+      return available.reduce((best, n) => {
+        const bs = -(processState[best]?.remaining ?? 999) + getAging(best, t);
+        const ns = -(processState[n]?.remaining   ?? 999) + getAging(n, t);
+        return ns > bs ? n : best;
+      });
+    } else {
+      // P-core: 짝수BT 우선 + 큰 BT + 에이징
       return available.reduce((best, n) =>
         getEffectiveWeight(n, t) > getEffectiveWeight(best, t) ? n : best
-      );
-    } else {
-      return available.reduce((best, n) =>
-        getEffectiveWeight(n, t) < getEffectiveWeight(best, t) ? n : best
       );
     }
   }

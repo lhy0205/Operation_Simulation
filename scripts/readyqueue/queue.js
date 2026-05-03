@@ -28,8 +28,9 @@ function renderReadyQueue() {
 
 function calcWeight(bt) {
   // const t = bt % 3 === 0 ? 10 : bt % 3 === 1 ? 5 : 0;
-  const t = bt % 2 === 0 ? 10 : bt % 2 === 1 ? 5 : 0;
-  return bt + t;
+  //const t = bt % 2 === 0 ? 10 : bt % 2 === 1 ? 5 : 0;
+  // return bt + t;
+  return (bt % 2 === 0) ? 1000 + bt : bt;
 }
 
 function addToReadyQueue(name) {
