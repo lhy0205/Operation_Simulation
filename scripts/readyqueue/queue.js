@@ -45,7 +45,6 @@ function addToReadyQueue(name) {
     coreName: null,
   };
   renderReadyQueue();
-  trySchedule();
 }
 
 positionReadyQueue();
