@@ -82,13 +82,16 @@ function assignToCore(coreName, procName) {
 
   if (s.everUsed) incrementContextSwitch();
 
+  if (s.needsStartup) {
+    s.startupCount = (s.startupCount || 0) + 1;
+    s.needsStartup = false;
+  }
+
   s.busy           = true;
   s.currentProcess = procName;
   s.blockStart     = ganttSeconds;
   s.quantumLeft    = getTQ();
   s.everUsed       = true;
-  s.startupCount   = (s.startupCount || 0) + 1;
-  //
 
   requestAnimationFrame(() => dropFromCloud(procName));
 
