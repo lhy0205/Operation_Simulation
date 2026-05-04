@@ -71,6 +71,7 @@ function buildGantt() {
   drawTicks(ganttSeconds);
 }
 
+
 function drawTicks(upToSec) {
   const ticks = document.getElementById('ganttTicks');
   if (!ticks) return;

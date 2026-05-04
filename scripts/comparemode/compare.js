@@ -163,6 +163,10 @@ function runSimulation(algo, procs, numP, numE, tq = 2) {
   return { blocks: finishedBlocks, coreNames, stats, summary: { avgWT, avgTT, avgNTT, makespan: endT, count: vals.length, perf, eff, totalWatt } };
 }
 
+
+
+
+
 /* ── 비교 간트 렌더 ── */
 function renderCmpGantt(containerId, blocks, coreNames) {
   const container = document.getElementById(containerId);
@@ -346,7 +350,8 @@ function runComparison() {
   renderVerdict(algo1, r1.summary, algo2, r2.summary);
 }
 
-/* ── 가로 스크롤 & 오버레이 닫기 ── */
+
+
 ['cmpGanttScroll1', 'cmpGanttScroll2'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('wheel', e => { e.preventDefault(); el.scrollLeft += e.deltaY; }, { passive: false });
