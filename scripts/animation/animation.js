@@ -136,9 +136,6 @@ function startDropAnimation() {
 
 
 
-
-
-
 // Context Switching, 번개 효과
 function incrementContextSwitch() {
   contextSwitchCount++;

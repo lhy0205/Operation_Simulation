@@ -156,6 +156,7 @@ body {
   text-align: center;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
+
 .tq-input:disabled {
   background: #f0f0e8;
   color: #bbb;
