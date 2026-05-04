@@ -105,7 +105,8 @@ function drawStatCanvas(canvasId, history, color) {
   const ch = H - PAD.top  - PAD.bottom;
 
   const data = history.filter(d => d.v !== null);
-  const maxT = data.length > 0 ? data[data.length - 1].t : 10;
+  // const maxT = data.length > 0 ? data[data.length - 1].t : 10;
+  const maxT = ganttSeconds > 0 ? ganttSeconds : 10;
   const maxV = data.length > 0 ? Math.max(...data.map(d => d.v)) * 1.2 : 1;
 
   const tx = t => PAD.left + (t / maxT) * cw;
